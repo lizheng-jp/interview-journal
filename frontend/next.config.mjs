@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  output: "standalone",
   async rewrites() {
-    const target = process.env.INTERNAL_API_URL || 'http://127.0.0.1:8000';
-    return [{ source: '/api/:path*', destination: `${target}/api/:path*` }];
-  }
+    const target = process.env.INTERNAL_API_URL || "http://127.0.0.1:8000";
+    return [{ source: "/api/:path*", destination: `${target}/api/:path*` }];
+  },
 };
 export default nextConfig;

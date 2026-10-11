@@ -1,124 +1,124 @@
-# Interview Journal — Private interview practice recorder
+# Interview Journal — AI Career Growth Platform
 
-> **Status:** Independent MVP source project. No changes have been made to DPES, Vision, existing Docker containers, production Caddy, or PostgreSQL.
+A usable private interview practice MVP built on the existing Next.js/FastAPI project. Browser recording, pause/resume, preview/save, existing-audio upload, searchable recording history, metadata editing, replay/download, timestamped transcription and a practice dashboard are implemented. English, Japanese, Chinese and automatic language detection use an opt-in **faster-whisper CPU INT8** worker.
 
-A glassmorphism Next.js + FastAPI recording journal designed for private interview practice on your existing AWS Lightsail. It records browser audio, saves categories/tags/notes, lists searchable recordings, streams audio for replay, and supports asynchronous CPU speech transcription with timestamped transcript segments. AI evaluation and Career Memory are intentionally out of scope for v0.1.
+**Local app:** http://localhost:13080. **Private source:** https://github.com/lizheng-jp/interview-journal. No production application, Caddy configuration, PostgreSQL role or monitoring configuration has been changed. See [verification](docs/verification.md) and [Lightsail deployment review](docs/lightsail-deployment.md).
 
-## Stack
-- Next.js (App Router), React, TypeScript, custom glass UI
-- FastAPI + SQLAlchemy
-- SQLite for fully isolated smoke tests; optional **existing PostgreSQL** for production, separate database and role
-- `faster-whisper` multilingual speech transcription (optional CPU worker, `base` INT8)
-- Docker Compose, reverse proxy through existing Caddy **only after approval**
+## Run locally with PostgreSQL (recommended)
 
-## Why these isolation rules?
-- New Compose project name (`interview-journal`), no shared container names, no new public ports.
-- `web` listens on **127.0.0.1:13080** only; verify that port is unused before starting. Backend/database are never exposed by Compose.
-- The default data store is a separate named Docker volume and a private SQLite DB. **It does not attach to existing PostgreSQL.**
-- Optional overlay `docker-compose.postgres.yml` attaches only the new API/worker to an approved existing Docker network. Do not run the overlay until the existing Postgres network, hostname, resources, and database permissions are confirmed.
-- The transcription worker is in a Compose profile, so it **does not start by default**.
-- Never apply the Caddy reference snippet automatically. Before any public-facing use, put the application behind a TLS reverse proxy with authentication; localhost-only access is safe for an isolated smoke test, not a production login solution.
-
-## Local development (no Docker needed)
-
-Python 3.12 and Node 22 recommended.
-
-```sh
-cd backend
-python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-In a second terminal:
-
-```sh
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://localhost:3000 (the Next.js rewrite proxies `/api/*` to localhost:8000). The app writes development audio/SQLite data to `.storage/`, ignored by Git. Use **localhost** for development; do not expose this unauthenticated API to the internet.
-
-### Optional CPU transcription locally
-
-```sh
-cd backend
-. .venv/bin/activate
-pip install -r requirements-worker.txt
-WHISPER_MODEL=base WHISPER_CPU_THREADS=1 python -m app.worker
-```
-
-The first launch downloads model weights into the local cache. Without the worker, recordings remain safely stored with `pending` transcription status. **A 2-vCPU shared Lightsail should not run this worker until CPU/RAM headroom is confirmed.** No transcript is fabricated; all uploaded recordings are preserved even when transcription fails.
-
-## Docker Compose smoke test — requires host port approval
-
-Only after checking existing container/resource/port status:
+Requirements: Docker Compose 2.24.4+, available localhost ports 13080 and 15432. This creates a separate PostgreSQL container, network and storage; it does not use DPES/Vision infrastructure.
 
 ```sh
 cp .env.example .env
-# verify free host port: ss -ltnp | grep :13080
-# check load: free -h; docker stats --no-stream; df -h
-# build on a separate machine/CI if Lightsail resources are tight
+# Set LOCAL_POSTGRES_PASSWORD to a random hexadecimal value in .env.
+# Generate one locally: python3 -c 'import secrets; print(secrets.token_hex(24))'
+chmod 600 .env
+# Verify ports are unused first: lsof -nP -iTCP:13080 -iTCP:15432 -sTCP:LISTEN
 
-docker compose up -d --build web api
-curl http://127.0.0.1:13080/api/health
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build --wait db api web
 ```
 
-Do not execute these commands on a live Lightsail until they have been reviewed. A new reverse proxy route needs separate user approval.
+Open **http://localhost:13080**, allow microphone access, record, pause/resume, finish, preview and save. The detail page can edit metadata, replay audio and jump to transcript timestamps. Categories: Behavioral, Coding, System Design, English Practice, Other. The library searches title, tags, notes and transcript text on the server, with category/language filters and pagination.
 
-Optional postgres overlay, **review first**:
+The worker is **off by default**. Audio is stored and marked pending until explicitly enabled. For automatic processing locally:
 
 ```sh
-# 1. Review infra/postgres-REVIEW-ONLY.sql and create an isolated db/user manually.
-# 2. Set DATABASE_URL and EXISTING_POSTGRES_NETWORK in .env.
-# 3. Confirm network and DB name with docker inspect and psql.
-docker compose -f docker-compose.yml -f docker-compose.postgres.yml config
-# launch only after explicit approval
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile transcription up -d --build transcription
+# Stop only this application's worker when finished:
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile transcription stop transcription
+# Or process one pending recording and exit (build the optional image first):
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile transcription build transcription
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile transcription run --rm transcription python -m app.worker --once
 ```
 
-When the web/API are stable and spare resources confirmed:
+The first launch downloads the multilingual `base` model; subsequent launches reuse the model cache. CPU is capped at one core and worker RAM at 1536 MB. The API and web remain separate. An exclusive renewable database lease prevents two workers processing the same queue and permits recovery after a crash (lease expires after 120 seconds). Status distinguishes pending, processing, completed and failed. A failed transcript can be retried. Changing the spoken language requeues transcription; editing language/deleting audio is blocked while processing.
+
+Do not enable a worker on shared production hardware without a fresh resource check and approval.
+
+Stop this local application without deleting recordings:
 
 ```sh
-docker compose --profile transcription up -d transcription
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile transcription down
 ```
 
-The worker is capped at 1 CPU and 1.5GB RAM in Compose but may contend with existing services; it is intentionally off by default.
+## Development without Docker
 
-## MVP routes
-- `GET /api/health` — liveness
-- `GET /api/categories` — category labels
-- `GET /api/recordings` — list/search/filter (title, tags, notes, transcript)
-- `POST /api/recordings` — multipart upload, max 100 MB by default, safe generated filename
-- `GET /api/recordings/{id}` — metadata + transcript segments
-- `GET /api/recordings/{id}/audio` — controlled audio playback/download, HTTP range via FileResponse
-- `PATCH /api/recordings/{id}` — edit title/category/tags/notes
-- `PATCH /api/recordings/{id}/segments/{segment_id}` — correct a transcript segment
-- `POST /api/recordings/{id}/retry-transcription`
-- `DELETE /api/recordings/{id}` — permanently delete recording and transcript
-- `GET /api/stats` — aggregate practice stats
-
-## Security boundaries and production readiness
-
-**This is a private single-owner MVP, not a public SaaS.** There is no app-managed login yet. The Compose port is bound to loopback; public access must be protected with Caddy basic authentication or an equivalent access gateway. Before allowing other users, implement trusted user identity, server-side per-resource authorization, HTTPS, account deletion, quotas/rate limits, database migrations and independent backups. Data is private by deployment, not by a UI login. Backend `owner_id` exists as a forward compatibility field, not as a completed multi-user access control feature.
-
-Store environment secrets outside Git. Audio is stored in a dedicated volume, never a public Next.js `/public` directory. Backup both the volume and the database; SQLite or disk snapshots on the same Lightsail instance do not provide independent backup protection. The upload handler checks MIME type and byte limit but should include payload/codec probing before public release. Extremely large uploads may still be buffered by the edge proxy; impose body limits there too.
-
-## Known limits in v0.1
-- Transcript worker is opt-in and has not yet been benchmarked on your shared Lightsail.
-- Browser sleep/lock may interrupt recording; current recorder keeps captured data in memory until saved, not durable offline chunked storage.
-- Current frontend library searches title/tags/notes in loaded results; API supports transcript search too, but frontend should be switched to server-side search before scale.
-- No AI scoring yet, and no live AI interviewing.
-- UI is a style approximation based on the requested DPES/Vision glass aesthetic; the existing projects' source/design tokens have not been accessible for an exact match.
-
-## GitHub publishing
-
-This source folder is an initialized local Git repository on branch `main`. No GitHub remote repository was created, because the connected GitHub integration did not expose a create-repository action or writable repositories. Copy this entire project into your own `GithubProject/` directory and then create a new private repo via GitHub UI before running:
+Python 3.12+, Node 22+. SQLite is a fallback for isolated development, not the recommended deployment database.
 
 ```sh
-cd GithubProject/interview-journal
-git remote add origin git@github.com:YOUR_ACCOUNT/interview-journal.git
-git push -u origin main
+python3 -m venv backend/.venv
+backend/.venv/bin/pip install -r backend/requirements-dev.txt
+cd backend
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-No existing DPES/Vision repository needs to be forked, modified, or shared. Package versions for Next.js/React target the May 2026 security fixes or later within the current major release; install updates before public exposure.
+In another terminal:
+
+```sh
+cd frontend
+npm ci
+npm run dev
+```
+
+Open http://localhost:3000. Next.js proxies `/api/*` to localhost:8000. Use `INTERNAL_API_URL` before building to select another backend. A production standalone build fixes that rewrite target at build time; Compose supplies `http://api:8000`.
+
+Optional development transcription uses the same DB and storage settings as the API:
+
+```sh
+backend/.venv/bin/pip install -r backend/requirements-worker.txt
+cd backend
+WHISPER_CPU_THREADS=1 .venv/bin/python -m app.worker
+```
+
+## Verification
+
+```sh
+# SQLite API + worker mechanics (model is a test double):
+PYTHONPATH=backend backend/.venv/bin/python -m pytest backend/tests -q
+# Real PostgreSQL in the isolated local Compose above; tests use disposable schemas:
+backend/.venv/bin/python scripts/test_postgres.py
+# Types, production build and real browser MediaRecorder/playback:
+npm --prefix frontend run lint
+npm --prefix frontend run build
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
+
+The ordinary browser suite uses a synthetic Chromium microphone, exercises real MediaRecorder/HTTP/database/audio playback and injects failures only for recovery checks. The optional real transcript browser test requires `E2E_TRANSCRIPT_ID` referencing a completed local test recording. See [verification details](docs/verification.md) for the real three-language speech smoke and tested limits. CI repeats SQLite/PostgreSQL tests, Docker builds and four ordinary browser tests. It does not download Whisper or claim transcription accuracy.
+
+## Stack and storage
+
+- Next.js App Router, TypeScript, Tailwind v4, adapted shadcn/ui Radix Button/Input primitives, Lucide.
+- Dark glass panels, soft gradients, rounded cards, responsive layouts, keyboard focus and reduced-motion support; informed by the current DPES and Vision visual sources.
+- FastAPI, SQLAlchemy, PostgreSQL 16; optional isolated SQLite.
+- PyAV validates actual audio, measures duration server-side and remuxes Chrome WebM without re-encoding to supply duration/seek information. Upload limit: 100 MB; duration limit: 12 hours; audio-only files required.
+- Dedicated volume for audio; metadata and transcript segments in the database. No audio or credentials in Git/public assets.
+
+Schema initialization currently uses SQLAlchemy `create_all`, including the additive `worker_lease` table. It does not migrate existing columns. The phase-one schema is compatible with the supplied initial code; use versioned migrations before changing an existing schema.
+
+## API
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/health` | Database readiness and live worker heartbeat |
+| `GET /api/categories` | Five practice categories |
+| `GET /api/recordings` | Search `q`, `category`, `language`, `status`, `limit`, `offset` |
+| `POST /api/recordings` | Multipart audio and metadata, server-side validation |
+| `GET /api/recordings/{id}` | Metadata and ordered transcript segments |
+| `GET /api/recordings/{id}/audio` | Audio streaming/download, HTTP byte ranges |
+| `PATCH /api/recordings/{id}` | Title/category/language/tags/notes |
+| `PATCH /api/recordings/{id}/segments/{segment_id}` | Transcript correction |
+| `POST /api/recordings/{id}/retry-transcription` | Queue another attempt |
+| `DELETE /api/recordings/{id}` | Delete audio/metadata/transcript |
+| `GET /api/stats` | Practice count, cumulative duration and category totals |
+
+## Boundaries
+
+This is a **single-owner private application**. It has no app-managed accounts. Loopback-only local access is supported; any public deployment requires authenticated HTTPS, with the prepared Caddy route protecting the entire site and API. `owner_id` is a server configuration boundary, not a multi-user login system.
+
+Captured audio stays in browser memory until saved. Reload, browser termination or device sleep can lose unsaved audio; normal link navigation/reload prompts before discarding. Uploaded audio survives failed transcription; upload failures keep the browser preview for retry. Chromium desktop was tested; Safari/iOS microphone capture and background interruption remain to be checked on actual devices. Speech quality is not guaranteed; timestamped text is editable.
+
+Back up **both PostgreSQL and the audio volume** to an independent destination and test restoration before relying on production retention. Automated off-host backup, multi-user auth, AI evaluation and career memory are outside this MVP. Lightsail remains pending approval for dedicated DB provisioning, shared-network attachment and a new Caddy site; no public deployment address is currently live.
+
+Implementation references: [shadcn/ui Radix Button](https://ui.shadcn.com/docs/components/radix/button), [faster-whisper CPU INT8](https://github.com/SYSTRAN/faster-whisper).

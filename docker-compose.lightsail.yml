@@ -1,0 +1,21 @@
+# REVIEW ONLY: validate resources, provision dedicated DB/role and approve Caddy route first.
+services:
+  web:
+    ports: !reset []
+    networks:
+      interview_private: {}
+      production_shared:
+        aliases: [interview-journal-web]
+  api:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set dedicated PostgreSQL URL outside Git}
+      APP_ORIGINS: ${APP_ORIGIN:?Set exact approved HTTPS origin}
+    networks: [interview_private, production_shared]
+  transcription:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set dedicated PostgreSQL URL outside Git}
+    networks: [interview_private, production_shared]
+networks:
+  production_shared:
+    external: true
+    name: ${EXISTING_POSTGRES_NETWORK:?Set approved production network}

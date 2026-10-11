@@ -33,3 +33,11 @@ class Segment(Base):
     text: Mapped[str] = mapped_column(Text)
 
 Index('ix_recordings_owner_created', Recording.owner_id, Recording.created_at)
+
+class WorkerLease(Base):
+    """One renewable worker lease; additive table, no existing columns change."""
+    __tablename__ = 'worker_lease'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token: Mapped[str] = mapped_column(String(36), default='')
+    expires_at: Mapped[float] = mapped_column(Float, default=0)
+    heartbeat_at: Mapped[float] = mapped_column(Float, default=0)

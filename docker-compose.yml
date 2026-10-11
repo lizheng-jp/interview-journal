@@ -11,8 +11,13 @@ services:
       - '127.0.0.1:${INTERVIEW_LOCAL_PORT:-13080}:3000'
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
     networks: [interview_private]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     mem_limit: 512m
     cpus: 0.6
 
@@ -24,9 +29,15 @@ services:
       STORAGE_DIR: /data/audio
       OWNER_ID: ${OWNER_ID:-local-owner}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-100}
+      APP_ORIGINS: ${APP_ORIGINS:-http://localhost:13080,http://127.0.0.1:13080}
     volumes:
       - interview_data:/data
     networks: [interview_private]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     mem_limit: 512m
     cpus: 0.5
 
@@ -38,6 +49,9 @@ services:
         WITH_TRANSCRIPTION: 'true'
     restart: unless-stopped
     command: python -m app.worker
+    depends_on:
+      api:
+        condition: service_healthy
     environment:
       DATABASE_URL: ${DATABASE_URL:-sqlite:////data/interview.db}
       STORAGE_DIR: /data/audio

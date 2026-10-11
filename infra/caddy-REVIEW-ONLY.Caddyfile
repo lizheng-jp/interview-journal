@@ -1,13 +1,17 @@
-# REFERENCE ONLY. Do not copy into running Caddy before confirming
-# the domain, authentication method, container connectivity and listener port.
-# This is NOT applied automatically.
-# This example is for Caddy running on the HOST. If the current Caddy
-# is containerized, 127.0.0.1 refers to that container instead;
-# connectivity needs a separately approved network/gateway plan.
-# Replace interview.example.com and the password hash before use.
+# REVIEW ONLY — standalone addition to existing imported sites directory.
+# web must join the approved Caddy Docker network with this UNIQUE alias.
+# Replace domain and password hash outside Git. Do not use existing frontend alias.
 interview.example.com {
     basic_auth {
         owner REPLACE_WITH_CADDY_PASSWORD_HASH
     }
-    reverse_proxy 127.0.0.1:13080
+    header {
+        X-Robots-Tag "noindex, nofollow, noarchive"
+        Referrer-Policy "same-origin"
+        X-Content-Type-Options "nosniff"
+    }
+    request_body {
+        max_size 105MB
+    }
+    reverse_proxy interview-journal-web:3000
 }

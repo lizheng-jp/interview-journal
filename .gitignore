@@ -13,3 +13,9 @@ storage/
 *.log
 .DS_Store
 .next/
+**/test-results/
+**/playwright-report/
+*.tsbuildinfo
+*.pem
+*.key
+.env.local-postgres

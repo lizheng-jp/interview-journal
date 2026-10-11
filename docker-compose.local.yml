@@ -1,0 +1,33 @@
+# Isolated PostgreSQL for local development. Does not join production networks.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: interview
+      POSTGRES_USER: interview
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:?Set a local-only password in .env}
+    ports:
+      - "127.0.0.1:${LOCAL_DB_PORT:-15432}:5432"
+    volumes:
+      - local_postgres:/var/lib/postgresql/data
+    networks: [interview_private]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U interview -d interview']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+  api:
+    environment:
+      DATABASE_URL: postgresql+psycopg://interview:${LOCAL_POSTGRES_PASSWORD}@db:5432/interview
+    depends_on:
+      db:
+        condition: service_healthy
+  transcription:
+    environment:
+      DATABASE_URL: postgresql+psycopg://interview:${LOCAL_POSTGRES_PASSWORD}@db:5432/interview
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  local_postgres:
