@@ -1,0 +1,15 @@
+# OPTIONAL overlay; use ONLY after confirming the name of the existing Postgres Docker network,
+# provisioning a dedicated database and least-privilege account and checking production resources.
+services:
+  api:
+    networks:
+      - interview_private
+      - shared_postgres
+  transcription:
+    networks:
+      - interview_private
+      - shared_postgres
+networks:
+  shared_postgres:
+    external: true
+    name: ${EXISTING_POSTGRES_NETWORK:?Set EXISTING_POSTGRES_NETWORK after inspection}

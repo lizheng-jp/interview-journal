@@ -1,0 +1,59 @@
+name: interview-journal
+services:
+  web:
+    build:
+      context: ./frontend
+      args:
+        INTERNAL_API_URL: http://api:8000
+    restart: unless-stopped
+    ports:
+      # Loopback only; NOT public. Confirm 13080 is unused before starting.
+      - '127.0.0.1:${INTERVIEW_LOCAL_PORT:-13080}:3000'
+    depends_on:
+      api:
+        condition: service_started
+    networks: [interview_private]
+    mem_limit: 512m
+    cpus: 0.6
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/interview.db}
+      STORAGE_DIR: /data/audio
+      OWNER_ID: ${OWNER_ID:-local-owner}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-100}
+    volumes:
+      - interview_data:/data
+    networks: [interview_private]
+    mem_limit: 512m
+    cpus: 0.5
+
+  transcription:
+    profiles: [transcription]
+    build:
+      context: ./backend
+      args:
+        WITH_TRANSCRIPTION: 'true'
+    restart: unless-stopped
+    command: python -m app.worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/interview.db}
+      STORAGE_DIR: /data/audio
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      WHISPER_CPU_THREADS: '1'
+      HF_HOME: /data/model_cache
+    volumes:
+      - interview_data:/data
+    networks: [interview_private]
+    mem_limit: 1536m
+    cpus: 1.0
+
+networks:
+  interview_private:
+    internal: false
+
+volumes:
+  interview_data:
+    name: interview_journal_data

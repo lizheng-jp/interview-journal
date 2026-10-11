@@ -1,0 +1,10 @@
+# REFERENCE ONLY. Do not copy into running Caddy before confirming
+# the domain, authentication method, container connectivity and listener port.
+# This is NOT applied automatically.
+# Replace interview.example.com and the password hash before use.
+interview.example.com {
+    basic_auth {
+        owner REPLACE_WITH_CADDY_PASSWORD_HASH
+    }
+    reverse_proxy 127.0.0.1:13080
+}
