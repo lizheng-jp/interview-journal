@@ -36,6 +36,10 @@ test("real MediaRecorder: record, pause, resume, upload, edit, search, playback,
     await page.getByLabel("Session title").fill(title);
     await page.getByLabel("Practice category").selectOption("coding");
     await page.getByLabel("Spoken language").selectOption("en");
+    await expect(page.getByLabel("Spoken language")).toHaveCSS(
+      "appearance",
+      "none",
+    );
     await page.getByLabel("Tags").fill("e2e, backend");
     await page
       .getByLabel("Your notes")
@@ -111,8 +115,18 @@ test("real MediaRecorder: record, pause, resume, upload, edit, search, playback,
     expect((await filtered).status()).toBe(200);
     await expect(page.locator(".library-item")).toHaveCount(1);
     await page.locator(".library-item").click();
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Delete recording" }).click();
+    const deleteDialog = page.getByRole("dialog", {
+      name: "Delete this recording?",
+    });
+    await expect(deleteDialog).toBeVisible();
+    await deleteDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(deleteDialog).not.toBeVisible();
+    expect((await request.get(`/api/recordings/${id}`)).status()).toBe(200);
+    await page.getByRole("button", { name: "Delete recording" }).click();
+    await deleteDialog
+      .getByRole("button", { name: "Delete permanently" })
+      .click();
     await expect(page).toHaveURL(/\/library$/);
     expect((await request.get(`/api/recordings/${id}`)).status()).toBe(404);
     expect(errors).toEqual([]);

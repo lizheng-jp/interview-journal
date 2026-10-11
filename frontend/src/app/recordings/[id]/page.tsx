@@ -28,6 +28,7 @@ export default function RecordingDetail() {
   const { id } = useParams<{ id: string }>(),
     router = useRouter();
   const player = useRef<HTMLAudioElement>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
   const [rec, setRec] = useState<Recording | null>(null),
     [title, setTitle] = useState(""),
     [notes, setNotes] = useState(""),
@@ -117,17 +118,16 @@ export default function RecordingDetail() {
     }
   }
   async function remove() {
-    if (
-      !window.confirm("Delete this recording and its transcript permanently?")
-    )
-      return;
     setBusy(true);
+    setError("");
+    setMessage("");
     try {
       await api(`/recordings/${id}`, { method: "DELETE" });
       router.push("/library");
     } catch (e) {
       setError(String(e));
       setBusy(false);
+      deleteDialog.current?.close();
     }
   }
   async function retry() {
@@ -383,11 +383,43 @@ export default function RecordingDetail() {
           )}
           {error && <div className="error-text">{error}</div>}
           <div className="divider" />
-          <Button className="delete-btn" disabled={busy} onClick={remove}>
+          <Button
+            className="delete-btn"
+            disabled={busy || rec.transcription_status === "processing"}
+            onClick={() => deleteDialog.current?.showModal()}
+          >
             <Trash2 size={15} /> Delete recording
           </Button>
         </aside>
       </div>
+      <dialog
+        ref={deleteDialog}
+        className="delete-dialog"
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+        onCancel={(event) => {
+          if (busy) event.preventDefault();
+        }}
+      >
+        <h3 id="delete-dialog-title">Delete this recording?</h3>
+        <p id="delete-dialog-description">
+          “{rec.title}” and its transcript will be permanently deleted. This
+          cannot be undone.
+        </p>
+        <div className="delete-dialog-actions">
+          <Button
+            className="button secondary"
+            autoFocus
+            disabled={busy}
+            onClick={() => deleteDialog.current?.close()}
+          >
+            Cancel
+          </Button>
+          <Button className="button danger" disabled={busy} onClick={remove}>
+            <Trash2 size={16} /> {busy ? "Deleting…" : "Delete permanently"}
+          </Button>
+        </div>
+      </dialog>
     </>
   );
 }
