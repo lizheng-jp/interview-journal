@@ -1,0 +1,8 @@
+# Deploy images built off-host. Use together with docker-compose.lightsail.yml.
+services:
+  web:
+    build: !reset null
+    image: ${INTERVIEW_WEB_IMAGE:?Set the verified web image tag}
+  api:
+    build: !reset null
+    image: ${INTERVIEW_API_IMAGE:?Set the verified API image tag}

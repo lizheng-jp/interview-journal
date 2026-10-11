@@ -122,3 +122,19 @@ Captured audio stays in browser memory until saved. Reload, browser termination 
 Back up **both PostgreSQL and the audio volume** to an independent destination and test restoration before relying on production retention. Automated off-host backup, multi-user auth, AI evaluation and career memory are outside this MVP. Lightsail remains pending approval for dedicated DB provisioning, shared-network attachment and a new Caddy site; no public deployment address is currently live.
 
 Implementation references: [shadcn/ui Radix Button](https://ui.shadcn.com/docs/components/radix/button), [faster-whisper CPU INT8](https://github.com/SYSTRAN/faster-whisper).
+
+## Public source, private recordings
+
+The GitHub repository contains application code and synthetic test fixtures only. Audio,
+transcripts, database files, populated environment files and deployment credentials are
+excluded from Git. Publishing the source does not make recordings public.
+
+The MVP has one workspace and does not implement per-user accounts. Every deployed
+route, including audio and API routes, must be protected by the reverse proxy's
+whole-site authentication. Do not publish an anonymous writable instance. The optional
+Whisper worker remains disabled until explicitly started.
+
+Production images can be built off-host with `scripts/build_release.sh`. Use
+`docker-compose.images.yml` alongside the production overlay to run those verified
+Linux amd64 images with `--no-build`, without compiling on the shared Lightsail host.
+The generated `.storage/releases` bundles are ignored by Git.

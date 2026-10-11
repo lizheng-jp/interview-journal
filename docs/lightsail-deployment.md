@@ -51,3 +51,23 @@ After confirmation, the implementation sequence is:
 Rollback only removes the new site (followed by an approved Caddy validation/reload), stops Interview Journal containers and disconnects their network endpoints. Preserve its audio volume/database for recovery. Never remove shared networks, existing containers or business data.
 
 No public Interview Journal URL is live as part of this delivery. The usable address is the local loopback app described in README.
+
+## Follow-up inspection on 2026-10-11
+
+A fresh read-only check found about 1.9 GiB available RAM, 59 GiB free disk, low CPU
+load, and all nine existing containers running with restart count zero. No existing
+service was changed. The repository's reachable Git history was checked for audio,
+databases, populated environment files, private keys, token patterns and literal
+credential assignments; only documented template placeholders matched URL checks.
+The source repository was made public after that review.
+
+The proposed domain is `interview.lizheng.cc`; its DNS did not resolve at inspection.
+DNS must be provisioned before public HTTPS can work. Database provisioning and the
+new authenticated Caddy site remain pending explicit approval. The source repository
+being public does not authorize unauthenticated access to stored recordings.
+
+Use `scripts/build_release.sh` to build/export Linux amd64 web/API images locally.
+Transfer the ignored release bundle and load it on Lightsail. Add
+`docker-compose.images.yml` as the last Compose overlay and start only `api web` with
+`--no-build`. This removes the need for production-side builds. Never transfer local
+recordings, the local-development database or the local `.env` as part of a release.
