@@ -6,6 +6,7 @@ Evidence is from the actual local code, isolated Docker/PostgreSQL application a
 | --- | --- | --- |
 | API + worker mechanics, SQLite | 8 passed | Real audio payload validation, CRUD, metadata, filters, search, pagination, byte-range playback, aggregate duration, owner boundary, browser origin guard, worker lease/failure/retry; model is a test double |
 | Same API + worker checks, PostgreSQL 16 | 8 passed | Dedicated local Docker database, temporary schema per test; no production DB writes |
+| GitHub Actions | Passed | [Run 38138631463](https://github.com/lizheng-jp/interview-journal/actions/runs/38138631463), tested implementation commit `49aba18`: Linux amd64 Docker build, SQLite 8 passed, PostgreSQL 8 passed, Chromium 4 passed; optional real-transcript browser case skipped in CI |
 | TypeScript | Passed | `tsc --noEmit` |
 | Next.js production build | Passed | `next build --webpack`; standalone Docker image also built and ran |
 | Web/API/PostgreSQL Compose | Passed | Only new local services; API/web ready and worker default offline |
@@ -49,7 +50,7 @@ cd frontend
 E2E_TRANSCRIPT_ID=LOCAL_COMPLETED_ENGLISH_FIXTURE_ID npm run test:e2e
 ```
 
-Delete those synthetic fixtures through the app after review. CI skips this optional transcript case; it runs four ordinary browser cases and mocked worker mechanics without Whisper downloads. Local success does not imply a GitHub Actions run has finished; check the repository Actions page separately.
+Delete those synthetic fixtures through the app after review. CI skips this optional transcript case; it runs four ordinary browser cases and mocked worker mechanics without Whisper downloads. The linked GitHub Actions run passed for implementation commit `49aba18`. The subsequent documentation-only commit records that evidence; its `[skip ci]` marker avoids repeating unchanged application tests.
 
 ## Not yet verified or completed
 

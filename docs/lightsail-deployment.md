@@ -40,7 +40,7 @@ Populate the production `.env` **on the server**, outside Git, with the approved
 After confirmation, the implementation sequence is:
 
 1. Repeat read-only resource checks at peak-relevant load and record existing container IDs/health/restart counts. If capacity/permissions conflict, stop.
-2. Build and validate images for the server architecture on a development machine/CI. Only ARM64 local images have been exercised in this session; validate an amd64 build if the target requires it. Avoid consuming shared production CPU/RAM during builds.
+2. Build and validate images for the server architecture on a development machine/CI. API/web images were built and exercised on Linux amd64 in the successful GitHub Actions run linked in verification. The optional CPU Worker was exercised on local Linux ARM64 and macOS ARM64; validate it on the target architecture before any approved production use. Avoid consuming shared production CPU/RAM during builds.
 3. Provision only the new role/database; verify login to that database with no superuser/create-role/create-db powers. Check ownership, table initialization and storage permissions.
 4. Validate the combined Compose model with secrets redacted, confirm it uses only the dedicated PostgreSQL URL, and start only the new API/web containers with the production overlay. Keep the `transcription` profile disabled. Never run broad `docker compose down`, prune or cleanup commands against existing projects.
 5. Verify the new service from inside the approved network before proxy integration. Compare existing services' health and resource consumption; stop if they deteriorate.
