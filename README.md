@@ -110,3 +110,15 @@ Store environment secrets outside Git. Audio is stored in a dedicated volume, ne
 - Current frontend library searches title/tags/notes in loaded results; API supports transcript search too, but frontend should be switched to server-side search before scale.
 - No AI scoring yet, and no live AI interviewing.
 - UI is a style approximation based on the requested DPES/Vision glass aesthetic; the existing projects' source/design tokens have not been accessible for an exact match.
+
+## GitHub publishing
+
+This source folder is an initialized local Git repository on branch `main`. No GitHub remote repository was created, because the connected GitHub integration did not expose a create-repository action or writable repositories. Copy this entire project into your own `GithubProject/` directory and then create a new private repo via GitHub UI before running:
+
+```sh
+cd GithubProject/interview-journal
+git remote add origin git@github.com:YOUR_ACCOUNT/interview-journal.git
+git push -u origin main
+```
+
+No existing DPES/Vision repository needs to be forked, modified, or shared. Package versions for Next.js/React target the May 2026 security fixes or later within the current major release; install updates before public exposure.

@@ -1,6 +1,9 @@
 # REFERENCE ONLY. Do not copy into running Caddy before confirming
 # the domain, authentication method, container connectivity and listener port.
 # This is NOT applied automatically.
+# This example is for Caddy running on the HOST. If the current Caddy
+# is containerized, 127.0.0.1 refers to that container instead;
+# connectivity needs a separately approved network/gateway plan.
 # Replace interview.example.com and the password hash before use.
 interview.example.com {
     basic_auth {
